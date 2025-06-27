@@ -6,6 +6,8 @@ import {
   getAlerts,
   exportData,
   importData,
+  exportDataAsCSV,
+  importDataFromCSV,
 } from "../../utils/localStorageUtils";
 import { runPatternDetection } from "../../utils/patternDetection";
 import {
@@ -41,7 +43,10 @@ export default function AnalyticsPage() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showCSVImportModal, setShowCSVImportModal] = useState(false);
   const [importDataText, setImportDataText] = useState("");
+  const [importCSVDataText, setImportCSVDataText] = useState("");
+  const [importFormat, setImportFormat] = useState<"json" | "csv">("json");
 
   useEffect(() => {
     loadData();
@@ -72,6 +77,19 @@ export default function AnalyticsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleCSVExport = () => {
+    const data = exportDataAsCSV();
+    const blob = new Blob([data], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `patient-data-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleImport = () => {
     if (importData(importDataText)) {
       alert("Data imported successfully!");
@@ -80,6 +98,17 @@ export default function AnalyticsPage() {
       loadData();
     } else {
       alert("Failed to import data. Please check the format.");
+    }
+  };
+
+  const handleCSVImport = () => {
+    if (importDataFromCSV(importCSVDataText)) {
+      alert("CSV data imported successfully!");
+      setShowCSVImportModal(false);
+      setImportCSVDataText("");
+      loadData();
+    } else {
+      alert("Failed to import CSV data. Please check the format.");
     }
   };
 
@@ -201,13 +230,25 @@ export default function AnalyticsPage() {
               onClick={handleExport}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              Export Data
+              Export JSON
+            </button>
+            <button
+              onClick={handleCSVExport}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Export CSV
             </button>
             <button
               onClick={() => setShowImportModal(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              Import Data
+              Import JSON
+            </button>
+            <button
+              onClick={() => setShowCSVImportModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Import CSV
             </button>
             <button
               onClick={loadData}
@@ -396,7 +437,7 @@ export default function AnalyticsPage() {
           <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Import Data
+                Import JSON Data
               </h3>
               <textarea
                 value={importDataText}
@@ -416,6 +457,49 @@ export default function AnalyticsPage() {
                   onClick={() => {
                     setShowImportModal(false);
                     setImportDataText("");
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Import Modal */}
+      {showCSVImportModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Import CSV Data
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Paste CSV data with headers: Patient ID, Patient Name, Age,
+                Gender, Contact Info, Visit ID, Visit Date, Symptoms, Diagnosis,
+                Treatment, Severity, Healing Duration (days), Notes, Visit
+                Created At, Patient Created At, Patient Updated At
+              </p>
+              <textarea
+                value={importCSVDataText}
+                onChange={(e) => setImportCSVDataText(e.target.value)}
+                placeholder="Paste your CSV data here..."
+                rows={10}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex space-x-4 mt-4">
+                <button
+                  onClick={handleCSVImport}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Import
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCSVImportModal(false);
+                    setImportCSVDataText("");
                   }}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 >

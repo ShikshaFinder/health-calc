@@ -1,9 +1,9 @@
 import { Patient, Visit, PatternAlert, AnalyticsData } from "./types";
 
 const STORAGE_KEYS = {
-  PATIENTS: "njhealth_patients",
-  ALERTS: "njhealth_alerts",
-  SETTINGS: "njhealth_settings",
+  PATIENTS: "health_patients",
+  ALERTS: "health_alerts",
+  SETTINGS: "health_settings",
 };
 
 // Patient Management
@@ -257,4 +257,153 @@ export const importData = (jsonData: string): boolean => {
     console.error("Import failed:", error);
     return false;
   }
+};
+
+// CSV Export and Import functions
+export const exportDataAsCSV = (): string => {
+  const patients = getPatients();
+
+  // Create CSV header
+  const headers = [
+    "Patient ID",
+    "Patient Name",
+    "Age",
+    "Gender",
+    "Contact Info",
+    "Visit ID",
+    "Visit Date",
+    "Symptoms",
+    "Diagnosis",
+    "Treatment",
+    "Severity",
+    "Healing Duration (days)",
+    "Notes",
+    "Visit Created At",
+    "Patient Created At",
+    "Patient Updated At",
+  ].join(",");
+
+  // Create CSV rows
+  const rows = patients.flatMap((patient) =>
+    patient.visits.map((visit) =>
+      [
+        patient.id,
+        `"${patient.name.replace(/"/g, '""')}"`,
+        patient.age,
+        patient.gender,
+        `"${patient.contactInfo.replace(/"/g, '""')}"`,
+        visit.id,
+        visit.date,
+        `"${visit.symptoms.join("; ").replace(/"/g, '""')}"`,
+        `"${visit.diagnosis.replace(/"/g, '""')}"`,
+        `"${visit.treatment.replace(/"/g, '""')}"`,
+        visit.severity,
+        visit.healingDuration,
+        `"${visit.notes.replace(/"/g, '""')}"`,
+        visit.createdAt,
+        patient.createdAt,
+        patient.updatedAt,
+      ].join(",")
+    )
+  );
+
+  return [headers, ...rows].join("\n");
+};
+
+export const importDataFromCSV = (csvData: string): boolean => {
+  try {
+    const lines = csvData.trim().split("\n");
+    if (lines.length < 2) return false; // Need at least header and one data row
+
+    const headers = lines[0].split(",").map((h) => h.trim());
+    const dataRows = lines.slice(1);
+
+    // Group data by patient
+    const patientMap = new Map<string, any>();
+
+    dataRows.forEach((row) => {
+      const values = parseCSVRow(row);
+      if (values.length < headers.length) return; // Skip invalid rows
+
+      const patientId = values[0];
+      const visitId = values[5];
+
+      if (!patientMap.has(patientId)) {
+        patientMap.set(patientId, {
+          id: patientId,
+          name: values[1].replace(/^"|"$/g, ""),
+          age: parseInt(values[2]) || 0,
+          gender: values[3] as "male" | "female" | "other",
+          contactInfo: values[4].replace(/^"|"$/g, ""),
+          visits: [],
+          createdAt: values[14],
+          updatedAt: values[15],
+        });
+      }
+
+      const patient = patientMap.get(patientId);
+      const visit = {
+        id: visitId,
+        date: values[6],
+        symptoms: values[7]
+          .replace(/^"|"$/g, "")
+          .split("; ")
+          .filter((s) => s.trim()),
+        diagnosis: values[8].replace(/^"|"$/g, ""),
+        treatment: values[9].replace(/^"|"$/g, ""),
+        severity: values[10] as "mild" | "moderate" | "severe",
+        healingDuration: parseInt(values[11]) || 0,
+        notes: values[12].replace(/^"|"$/g, ""),
+        createdAt: values[13],
+      };
+
+      // Check if visit already exists
+      const existingVisitIndex = patient.visits.findIndex(
+        (v: any) => v.id === visitId
+      );
+      if (existingVisitIndex === -1) {
+        patient.visits.push(visit);
+      }
+    });
+
+    // Convert map to array and save
+    const patients = Array.from(patientMap.values());
+    savePatients(patients);
+    return true;
+  } catch (error) {
+    console.error("CSV import failed:", error);
+    return false;
+  }
+};
+
+// Helper function to parse CSV row with proper quote handling
+const parseCSVRow = (row: string): string[] => {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < row.length; i++) {
+    const char = row[i];
+
+    if (char === '"') {
+      if (inQuotes && row[i + 1] === '"') {
+        // Escaped quote
+        current += '"';
+        i++; // Skip next quote
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      // End of field
+      result.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  // Add the last field
+  result.push(current);
+  return result;
 };

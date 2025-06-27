@@ -1,4 +1,4 @@
-# 🏥 NJ Health - Patient Record Management System
+# 🏥  - Patient Record Management System
 
 A comprehensive, offline-first patient record management web application built with Next.js and Tailwind CSS. This application allows healthcare providers to manage patient records, track medical visits, and analyze health trends using only browser storage.
 
@@ -50,7 +50,7 @@ A comprehensive, offline-first patient record management web application built w
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd njheatlthcalc
+   cd heatlthcalc
    ```
 
 2. **Install dependencies**
