@@ -19,6 +19,12 @@ export interface Visit {
   healingDuration: number; // in days
   notes: string;
   createdAt: string;
+  medicines?: string[]; // List of medicines prescribed
+  repeat?: {
+    enabled: boolean;
+    times: number;
+    intervalDays: number;
+  };
 }
 
 export interface PatternAlert {

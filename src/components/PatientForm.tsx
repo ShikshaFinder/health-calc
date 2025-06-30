@@ -14,6 +14,19 @@ interface PatientFormProps {
   onCancel?: () => void;
 }
 
+const MEDICINE_LIST = [
+  "Paracetamol",
+  "Ibuprofen",
+  "Amoxicillin",
+  "Azithromycin",
+  "Cetirizine",
+  "Metformin",
+  "Atorvastatin",
+  "Omeprazole",
+  "Amlodipine",
+  "Losartan",
+];
+
 export default function PatientForm({
   patient,
   onSave,
@@ -34,6 +47,10 @@ export default function PatientForm({
     severity: "mild" as "mild" | "moderate" | "severe",
     healingDuration: "",
     notes: "",
+    medicines: [] as string[],
+    repeatEnabled: false,
+    repeatTimes: "1",
+    repeatInterval: "1",
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -99,6 +116,26 @@ export default function PatientForm({
     }));
   };
 
+  const handleMedicineChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = Array.from(
+      e.target.selectedOptions,
+      (option) => option.value
+    );
+    setVisitData((prev) => ({ ...prev, medicines: selected }));
+  };
+
+  const handleRepeatChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    if (name === "repeatEnabled" && type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setVisitData((prev) => ({ ...prev, repeatEnabled: checked }));
+    } else {
+      setVisitData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -141,7 +178,7 @@ export default function PatientForm({
       return;
     }
 
-    const visitDataToSave = {
+    const visitDataToSave: any = {
       date: visitData.date,
       symptoms: visitData.symptoms.filter((s) => s.trim() !== ""),
       diagnosis: visitData.diagnosis,
@@ -149,7 +186,15 @@ export default function PatientForm({
       severity: visitData.severity,
       healingDuration: parseInt(visitData.healingDuration),
       notes: visitData.notes,
+      medicines: visitData.medicines,
     };
+    if (visitData.repeatEnabled) {
+      visitDataToSave.repeat = {
+        enabled: true,
+        times: parseInt(visitData.repeatTimes) || 1,
+        intervalDays: parseInt(visitData.repeatInterval) || 1,
+      };
+    }
 
     addVisit(patient.id, visitDataToSave);
 
@@ -162,6 +207,10 @@ export default function PatientForm({
       severity: "mild",
       healingDuration: "",
       notes: "",
+      medicines: [] as string[],
+      repeatEnabled: false,
+      repeatTimes: "1",
+      repeatInterval: "1",
     });
 
     setShowVisitForm(false);
@@ -337,6 +386,66 @@ export default function PatientForm({
                 >
                   + Add Symptom
                 </button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Medicines
+                </label>
+                <select
+                  multiple
+                  value={visitData.medicines}
+                  onChange={handleMedicineChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {MEDICINE_LIST.map((med) => (
+                    <option key={med} value={med}>
+                      {med}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Hold Ctrl (Windows) or Cmd (Mac) to select multiple medicines.
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 mt-2">
+                <input
+                  type="checkbox"
+                  id="repeatEnabled"
+                  name="repeatEnabled"
+                  checked={visitData.repeatEnabled}
+                  onChange={handleRepeatChange}
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                />
+                <label
+                  htmlFor="repeatEnabled"
+                  className="text-sm text-gray-700"
+                >
+                  Repeat Dose
+                </label>
+                {visitData.repeatEnabled && (
+                  <>
+                    <span className="ml-2 text-sm">Times:</span>
+                    <input
+                      type="number"
+                      name="repeatTimes"
+                      min="1"
+                      value={visitData.repeatTimes}
+                      onChange={handleRepeatChange}
+                      className="w-16 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm">Interval (days):</span>
+                    <input
+                      type="number"
+                      name="repeatInterval"
+                      min="1"
+                      value={visitData.repeatInterval}
+                      onChange={handleRepeatChange}
+                      className="w-16 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

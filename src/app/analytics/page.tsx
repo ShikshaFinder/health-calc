@@ -47,10 +47,45 @@ export default function AnalyticsPage() {
   const [importDataText, setImportDataText] = useState("");
   const [importCSVDataText, setImportCSVDataText] = useState("");
   const [importFormat, setImportFormat] = useState<"json" | "csv">("json");
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [monthSymptoms, setMonthSymptoms] = useState<
+    { symptom: string; count: number }[]
+  >([]);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (analytics && selectedMonth) {
+      // Find all visits in the selected month
+      const patients = JSON.parse(
+        localStorage.getItem("health_patients") || "[]"
+      );
+      const allVisits = patients.flatMap((p: any) => p.visits);
+      const monthVisits = allVisits.filter((visit: any) => {
+        const month = new Date(visit.date).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+        });
+        return month === selectedMonth;
+      });
+      // Count symptoms
+      const symptomCounts: { [key: string]: number } = {};
+      monthVisits.forEach((visit: any) => {
+        visit.symptoms.forEach((symptom: string) => {
+          symptomCounts[symptom] = (symptomCounts[symptom] || 0) + 1;
+        });
+      });
+      const sorted = Object.entries(symptomCounts)
+        .map(([symptom, count]) => ({ symptom, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+      setMonthSymptoms(sorted);
+    } else {
+      setMonthSymptoms([]);
+    }
+  }, [analytics, selectedMonth]);
 
   const loadData = () => {
     const analyticsData = getAnalyticsData();
@@ -375,6 +410,73 @@ export default function AnalyticsPage() {
           <div className="h-64">
             <Line data={visitFrequencyData} options={chartOptions} />
           </div>
+        </div>
+      </div>
+
+      {/* Month-wise Visits Table */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          Number of Visits Month-wise
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Month
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Number of Visits
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {analytics?.visitFrequency.map((item: any) => (
+                <tr key={item.month}>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.month}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{item.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Most Occurring Symptoms in a Month */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900">
+            Most Occurring Symptoms in a Month
+          </h3>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select Month</option>
+            {analytics?.visitFrequency.map((item: any) => (
+              <option key={item.month} value={item.month}>
+                {item.month}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="h-64">
+          <Bar
+            data={{
+              labels: monthSymptoms.map((item) => item.symptom),
+              datasets: [
+                {
+                  label: "Occurrences",
+                  data: monthSymptoms.map((item) => item.count),
+                  backgroundColor: "rgba(59, 130, 246, 0.8)",
+                  borderColor: "rgba(59, 130, 246, 1)",
+                  borderWidth: 1,
+                },
+              ],
+            }}
+            options={chartOptions}
+          />
         </div>
       </div>
 
