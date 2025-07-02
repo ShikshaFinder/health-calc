@@ -8,6 +8,13 @@ import {
   importData,
   exportDataAsCSV,
   importDataFromCSV,
+  importDataFromFile,
+  downloadDataAsJSON,
+  downloadDataAsCSV,
+  getStorageInfo,
+  createBackup,
+  restoreFromBackup,
+  clearAllData,
 } from "../../utils/localStorageUtils";
 import { runPatternDetection } from "../../utils/patternDetection";
 import {
@@ -48,6 +55,7 @@ export default function AnalyticsPage() {
   const [importCSVDataText, setImportCSVDataText] = useState("");
   const [importFormat, setImportFormat] = useState<"json" | "csv">("json");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [showFileUploadModal, setShowFileUploadModal] = useState(false);
   const [monthSymptoms, setMonthSymptoms] = useState<
     { symptom: string; count: number }[]
   >([]);
@@ -100,29 +108,11 @@ export default function AnalyticsPage() {
   };
 
   const handleExport = () => {
-    const data = exportData();
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `patient-data-${new Date().toISOString().split("T")[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadDataAsJSON();
   };
 
   const handleCSVExport = () => {
-    const data = exportDataAsCSV();
-    const blob = new Blob([data], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `patient-data-${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadDataAsCSV();
   };
 
   const handleImport = () => {
@@ -144,6 +134,32 @@ export default function AnalyticsPage() {
       loadData();
     } else {
       alert("Failed to import CSV data. Please check the format.");
+    }
+  };
+
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/json" && !file.name.endsWith(".json")) {
+      alert("Please select a valid JSON file.");
+      return;
+    }
+
+    try {
+      const success = await importDataFromFile(file);
+      if (success) {
+        alert("File imported successfully!");
+        setShowFileUploadModal(false);
+        loadData();
+      } else {
+        alert("Failed to import file. Please check the format.");
+      }
+    } catch (error) {
+      console.error("File upload error:", error);
+      alert("Error uploading file. Please try again.");
     }
   };
 
@@ -480,6 +496,141 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      {/* Data Management Section */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          Data Management
+        </h3>
+
+        {/* Storage Information */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {(() => {
+            const storageInfo = getStorageInfo();
+            return (
+              <>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-blue-600">
+                    Storage Used
+                  </p>
+                  <p className="text-2xl font-bold text-blue-900">
+                    {storageInfo.storageUsed}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-green-600">
+                    Total Patients
+                  </p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {storageInfo.patientsCount}
+                  </p>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-yellow-600">
+                    Total Alerts
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-900">
+                    {storageInfo.alertsCount}
+                  </p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-purple-600">
+                    Last Backup
+                  </p>
+                  <p className="text-sm font-bold text-purple-900">
+                    {storageInfo.lastBackup
+                      ? new Date(storageInfo.lastBackup).toLocaleDateString()
+                      : "Never"}
+                  </p>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Data Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            📥 Download JSON
+          </button>
+          <button
+            onClick={handleCSVExport}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            📊 Download CSV
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            📤 Import JSON
+          </button>
+          <button
+            onClick={() => setShowFileUploadModal(true)}
+            className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            📁 Upload JSON File
+          </button>
+          <button
+            onClick={() => setShowCSVImportModal(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            📋 Import CSV
+          </button>
+          <button
+            onClick={() => {
+              createBackup();
+              alert("Backup created successfully!");
+            }}
+            className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+          >
+            💾 Create Backup
+          </button>
+          <button
+            onClick={() => {
+              if (
+                confirm(
+                  "Are you sure you want to restore from backup? This will overwrite current data."
+                )
+              ) {
+                if (restoreFromBackup()) {
+                  alert("Data restored from backup successfully!");
+                  loadData();
+                } else {
+                  alert("No backup found or restore failed.");
+                }
+              }
+            }}
+            className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            🔄 Restore Backup
+          </button>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="border-t pt-4">
+          <h4 className="text-md font-medium text-red-600 mb-3">Danger Zone</h4>
+          <button
+            onClick={() => {
+              if (
+                confirm(
+                  "Are you sure you want to clear all data? This action cannot be undone!"
+                )
+              ) {
+                clearAllData();
+                alert("All data cleared successfully!");
+                loadData();
+              }
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+          >
+            🗑️ Clear All Data
+          </button>
+        </div>
+      </div>
+
       {/* Recent Alerts */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
@@ -532,6 +683,48 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
+
+      {/* File Upload Modal */}
+      {showFileUploadModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Upload JSON File
+              </h3>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer text-blue-600 hover:text-blue-800"
+                >
+                  <div className="text-4xl mb-2">📁</div>
+                  <p className="text-sm text-gray-600">
+                    Click to select a JSON file or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Supports .json files only
+                  </p>
+                </label>
+              </div>
+              <div className="flex space-x-4 mt-4">
+                <button
+                  onClick={() => setShowFileUploadModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Import Modal */}
       {showImportModal && (
